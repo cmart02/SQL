@@ -1,9 +1,10 @@
-#sKELETON
+#SKELETON
 SELECT
   c.name as CusName
 FROM
   customers c
 WHERE
+  c.name = 'robert'
 JOIN
   ON
 GROUP BY
