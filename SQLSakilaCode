@@ -1,6 +1,8 @@
 #sKELETON
 SELECT
+  c.name as CusName
 FROM
+  customers c
 WHERE
 JOIN
   ON
