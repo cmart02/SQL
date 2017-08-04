@@ -1,0 +1,166 @@
+
+SELECT DISTINCT
+  participant.payeeseq,
+
+  COMPDT,
+
+  pay.Payee_EffStartDate,
+  pay.Payee_EffEndDate,
+  pay.Payee_RemoveDate,
+  RTRIM(char(right('0' || pay.Payee_ID,5))) as Payee,
+
+  RTRIM(position.pos_EMPID) As pos_EMPID,
+  Position.Pos_Name,
+  Position.POS_GA1_SalesAlign,
+  Position.POS_GA6_JobCode,
+  position.POS_TitleName,
+  position.POS_EffStartDt,
+  position.POS_EffEndDt,
+  position.POS_GN1OfferAmt,
+  position.Pos_GD1_JbStartDt,
+  position.Pos_GD2_JbEndDt,
+  position.Pos_GD3_ProPayStartDt,
+  position.POS_GD4_StraigtSalStartDt,
+  position.POS_GB1_Straight_Sal,
+  position.POS_GB2_Pay_Protect,
+
+  participant.Part_First,
+  participant.Part_MI,
+  participant.Part_Last,
+  participant.EFFECTIVESTARTDATE as Part_EffStartDt,
+  participant.EFFECTIVEENDDATE as Part_EffEndDt,
+  participant.TERMINATIONDATE as Part_TermDt,
+  participant.REMOVEDATE as Part_RemoveDt,
+  participant.Part_BaseSal,
+  participant.PARTHIRED as Part_HiredDt,
+  participant.PARTGA1_SUPVR_FULL_NM as Part_GA1_SupvrName,
+  participant.PARTGA6_HR_STAT_CD as Part_GA6_HR_Status,
+  participant.PARTGA8_TITLEDESC as Part_GA8_Title,
+  participant.PARTGA9_PAYROLL_STAT_CD as Part_GA9_PayrollStat,
+  participant.PARTGA10_FULL_PART_TIME as Part_GA10_FT_PT,
+  participant.PartGA11_EMPL_REC_NBR as Part_GA11_EMPL_REC_NBR,
+  participant.PARTGA12_PAYGROUP as Part_GA12_PayGroup,
+  participant.PartGA14_WD_EMP_NBR,
+  right(participant.PARTGA11_EMPL_REC_NBR,5) as Part_EmpNbr,
+  participant.PARTGD1_REHIRE_DT as Part_RehireDt
+FROM
+----Participant--------------------------------------
+    (SELECT part.PAYEESEQ,
+        BusMo.BUS_MO_DT as CompDt,
+
+        part.FIRSTNAME as Part_First,
+        part.MIDDLENAME as Part_MI,
+        part.LASTNAME as Part_Last,
+        part.EFFECTIVESTARTDATE,
+        part.EFFECTIVEENDDATE,
+        part.TERMINATIONDATE,
+        part.REMOVEDATE,
+        part.salary as Part_BaseSal,
+        --substr (char(part.hiredate),6,2) ||'/'||substr (char (part.hiredate),9,2) ||'/'||
+        --substr (char (part.hiredate),1,4) as PartHired,
+        CHAR(DATE(part.hiredate),USA) As PartHired,
+        --substr (char(part.terminationdate),6,2) ||'/'||substr (char (part.terminationdate),9,2) ||'/'||
+        --substr (char(part.terminationdate),1,4) as PartTerminated,
+        CHAR(DATE(part.terminationdate),USA) As PartTerminated,
+        part.GENERICATTRIBUTE1 PartGA1_SUPVR_FULL_NM,
+        part.GENERICATTRIBUTE6 PartGA6_HR_STAT_CD,
+        part.GENERICATTRIBUTE7 PartGA7_EMP_ID,
+        part.GENERICATTRIBUTE8 PartGA8_TITLEDESC,
+        part.GENERICATTRIBUTE9 PartGA9_PAYROLL_STAT_CD,
+        part.GENERICATTRIBUTE10 PartGA10_FULL_PART_TIME,
+        part.GENERICATTRIBUTE11 PartGA11_EMPL_REC_NBR,
+        part.GENERICATTRIBUTE12 PartGA12_PAYGROUP,
+        part.GENERICATTRIBUTE14 PartGA14_WD_EMP_NBR,
+        part.GENERICNUMBER1 PartGN1_SUPVR_EMP_NBR1,
+        --substr (char(part.GENERICDATE1),6,2) ||'/'||substr (char (part.GENERICDATE1),9,2) ||'/'||
+        --substr (char(part.GENERICDATE1),1,4) as PartGD1_REHIRE_DT
+        CHAR(DATE(part.GENERICDATE1),USA) As PartGD1_REHIRE_DT
+      FROM TC_USER.EIM_BUS_MO_DATE_VAR2 BusMo
+        JOIN TC_USER.cs_participant part
+          ON 1=1
+          AND (part.effectivestartdate BETWEEN  BusMo.BUS_MO_TS - 4 months AND BusMo.BUS_MO_TS)
+      WHERE
+          1=1
+          AND (
+              1=1
+              AND part.EFFECTIVESTARTDATE = BusMo.BUS_MO_TS
+              AND part.effectiveenddate = '2200-01-01-00.00.00.00000'
+              AND part.REMOVEDATE = '2200-01-01-00.00.00.00000'
+              )
+          --12 prior months
+          OR (
+              1=1
+              AND part.removedate = '2200-01-01-00.00.00.000000'
+              AND part.effectivestartdate BETWEEN BusMo.BUS_MO_TS - 4 month AND BusMo.BUS_MO_TS - 1 month
+              AND part.EFFECTIVEENDDATE = part.effectivestartdate + 1 month
+              )
+       ) as participant
+   Left outer join
+-------------------------------------Payee-------------------------------------
+(select P.PAYEESEQ,
+P.EFFECTIVESTARTDATE as Payee_EffStartDate,
+P.EFFECTIVEENDDATE as Payee_EffEndDate,
+P.REMOVEDATE as Payee_RemoveDate,
+P.PAYEEID as Payee_ID ,
+p.islast
+from TC_USER.EIM_BUS_MO_DATE_VAR2 D
+join TC_USER.cs_payee P on
+     EFFECTIVESTARTDATE between Bus_Mo_ts - 4 months and D.BUS_MO_TS
+where ((effectiveenddate = '2200-01-01-00.00.00.00000' and islast = 1) or
+    effectiveenddate = effectivestartdate + 1 month) and P.REMOVEDATE = '2200-01-01-00.00.00.000000'
+) as pay
+on pay.PAYEE_EFFSTARTDATE = participant.EFFECTIVESTARTDATE and Pay.PAYEESEQ = participant.PAYEESEQ
+
+left outer join
+(------------------------Position-------------------------------
+Select
+PO.PAYEESEQ,
+case
+    when right(left(PO.NAME,5),1) = '~' then ('0' ||char(left(PO.name,4)))
+    else char(left(PO.name,5))
+    end as Pos_EmpID,
+Title.TitleName as POS_TitleName,
+PO.NAME as Pos_Name,
+PO.removedate as Pos_RemoveDate,
+PO.EFFECTIVEENDDATE as Pos_EffEndDt,
+PO.EFFECTIVEStartDATE as Pos_EffStartDt,
+PO.TITLESEQ as Pos_TitleSeq,
+PO.TARGETCOMPENSATION as Pos_TargetComp,
+PO.GENERICATTRIBUTE1 as POS_GA1_SalesAlign,
+PO.GENERICATTRIBUTE2,
+PO.GENERICATTRIBUTE3,
+PO.GENERICATTRIBUTE6 as POS_GA6_JobCode,
+PO.GENERICATTRIBUTE7,
+PO.GENERICNUMBER1 as POS_GN1OfferAmt,
+PO.GENERICDATE1 as Pos_GD1_JbStartDt,
+PO.GENERICDATE2 as Pos_GD2_JbEndDt,
+PO.GENERICDATE3 as Pos_GD3_ProPayStartDt,
+PO.GENERICDATE4 as POS_GD4_StraigtSalStartDt,
+PO.GENERICBOOLEAN1 as POS_GB1_Straight_Sal,
+PO.GENERICBOOLEAN2 as POS_GB2_Pay_Protect,
+PO.isLast
+from TC_USER.EIM_BUS_MO_DATE_VAR2 D
+join  TC_USER.cs_position PO
+on PO.EFFECTIVESTARTDATE between D.BUS_MO_TS - 4 months and D.BUS_MO_TS
+Left outer join
+    (select Ruleelementownerseq, T.NAME as TitleName from TC_USER.cs_title T where
+        T.effectiveenddate = '2200-01-01-00.00.00.000000' and
+        T.islast = 1 and T.removedate = '2200-01-01-00.00.00.000000') as Title
+on PO.titleseq = TITLE.RULEELEMENTOWNERSEQ
+where (PO.EFFECTIVESTARTDATE = D.BUS_MO_TS and
+    PO.effectiveenddate = '2200-01-01-00.00.00.00000' and
+    PO.REMOVEDATE = '2200-01-01-00.00.00.00000'and
+    po.Genericdate2 is null)
+    Or
+--4 prior months
+(PO.removedate = '2200-01-01-00.00.00.000000' and
+PO.effectivestartdate between D.BUS_MO_TS - 4 month and D.BUS_MO_TS - 1 month and
+PO.EFFECTIVEENDDATE = PO.effectivestartdate + 1 month )
+
+order by  left(PO.name, 5), PO.effectivestartdate
+) as position
+on participant.PAYEESEQ = position.payeeseq and participant.Effectivestartdate = position.Pos_EffStartDt
+
+Order by right(participant.PARTGA11_EMPL_REC_NBR,5),  participant.EFFECTIVESTARTDATE
+FETCH FIRST 100 ROWS ONLY
+with ur;
